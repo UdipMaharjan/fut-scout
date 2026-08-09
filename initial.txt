@@ -1,0 +1,18 @@
+Initial Commit
+
+    Football API
+                  ↓
+             Player Data
+                  ↓
+          Feature Engineering
+                  ↓
+            ML Similarity
+                  ↓
+         Top 5 Similar Players
+                  ↓
+                 LLM
+                  ↓
+        "Why are they similar?"
+                  ↓
+            FutScout UI 
+            
