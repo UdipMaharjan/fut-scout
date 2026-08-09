@@ -1,0 +1,3 @@
+"""
+FutScout - App Package
+"""

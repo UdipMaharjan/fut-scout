@@ -1,0 +1,3 @@
+"""
+FutScout - Utils Package
+"""

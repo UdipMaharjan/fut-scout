@@ -1,0 +1,3 @@
+"""
+FutScout - Services Package
+"""

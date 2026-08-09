@@ -1,0 +1,33 @@
+"""
+FutScout - Configuration
+"""
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# RapidAPI
+RAPIDAPI_KEY = os.getenv("RAPIDAPI_KEY", "")
+RAPIDAPI_HOST = os.getenv("RAPIDAPI_HOST", "free-api-live-football-data.p.rapidapi.com")
+RAPIDAPI_BASE_URL = f"https://{RAPIDAPI_HOST}"
+
+# LLM (Groq)
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+
+# CORS
+CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
+
+# Database
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./futscout.db")
+
+# Logging
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+
+# Environment
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+
+# Cache settings
+CACHE_TTL_PLAYER_DETAIL = 60 * 60 * 24 * 7  # 7 days
+CACHE_TTL_PLAYER_STATS = 60 * 60 * 24 * 3   # 3 days
+CACHE_TTL_SEARCH = 60 * 60 * 24              # 1 day
+CACHE_TTL_TEAM = 60 * 60 * 24 * 30           # 30 days
