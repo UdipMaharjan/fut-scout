@@ -14,6 +14,13 @@ const api = {
     return res.json()
   },
 
+  // Search players in local database (fallback)
+  async localSearchPlayers(query, limit = 20) {
+    const res = await fetch(`${API_BASE}/api/players/search/local?q=${encodeURIComponent(query)}&limit=${limit}`)
+    if (!res.ok) throw new Error('Local search failed')
+    return res.json()
+  },
+
   // List players from database
   async listPlayers(params = {}) {
     const { q, position, teamId, page = 1, limit = 20 } = params

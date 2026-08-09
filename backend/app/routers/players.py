@@ -77,6 +77,40 @@ async def search_players(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/search/local")
+async def local_search_players(
+    q: str = Query(..., min_length=1, description="Search query"),
+    limit: int = Query(20, ge=1, le=100),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Search players in local database (fallback when API is unavailable).
+    """
+    try:
+        search_term = f"%{q}%"
+        query = select(Player).filter(
+            or_(
+                Player.name.ilike(search_term),
+                Player.first_name.ilike(search_term),
+                Player.last_name.ilike(search_term)
+            )
+        ).limit(limit)
+
+        result = await db.execute(query)
+        players = result.scalars().all()
+
+        return {
+            "response": [build_player_response(p) for p in players],
+            "count": len(players),
+            "query": q,
+            "source": "local_db"
+        }
+
+    except Exception as e:
+        logger.error(f"Local search failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/search")
 async def api_search_players(
     q: str = Query(..., min_length=1, description="Search query"),
@@ -95,10 +129,55 @@ async def api_search_players(
         # Make API request
         response = await rapidapi_client.search_players(q)
 
-        # Cache the results
-        cache_service.set_search(q, response)
+        # Parse the response to extract player data
+        # RapidAPI returns: { "status": "success", "response": { "suggestions": [...] } }
+        suggestions = []
+        if isinstance(response, dict):
+            resp_data = response.get("response", {})
+            # Handle "suggestions" array from RapidAPI
+            if isinstance(resp_data, dict):
+                suggestions = resp_data.get("suggestions", [])
+            elif isinstance(resp_data, list):
+                suggestions = resp_data
 
-        return {**response, "cached": False}
+        # Handle if response itself has suggestions (alternative structure)
+        if not suggestions and isinstance(response, dict):
+            suggestions = response.get("suggestions", response.get("response", []))
+
+        # Transform to consistent format with id, name, etc.
+        players = []
+        for item in suggestions[:limit]:
+            if isinstance(item, dict):
+                player = {
+                    "id": item.get("id"),
+                    "name": item.get("name"),
+                    "position": item.get("position") or "Unknown",
+                    "age": item.get("age"),
+                    "nationality": item.get("nationality"),
+                    "market_value": item.get("market_value"),
+                    "market_value_display": item.get("market_value_display") or item.get("market_value"),
+                    "image_url": item.get("image_url") or item.get("photo"),
+                    "team_name": item.get("teamName") or item.get("team_name") or item.get("team") or "Unknown"
+                }
+                if player["id"]:
+                    # Convert id to int if it's a string
+                    try:
+                        player["id"] = int(player["id"])
+                    except (ValueError, TypeError):
+                        pass
+                    players.append(player)
+
+        result = {
+            "response": players,
+            "count": len(players),
+            "query": q,
+            "source": "rapidapi"
+        }
+
+        # Cache the results
+        cache_service.set_search(q, result)
+
+        return {**result, "cached": False}
 
     except Exception as e:
         logger.error(f"API search failed: {e}")
