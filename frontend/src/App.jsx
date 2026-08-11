@@ -4,6 +4,8 @@ import Home from './pages/Home'
 import Search from './pages/Search'
 import PlayerProfile from './pages/PlayerProfile'
 import Compare from './pages/Compare'
+import SquadBuilder from './pages/SquadBuilder'
+import About from './pages/About'
 import NotFound from './pages/NotFound'
 
 function App() {
@@ -16,6 +18,8 @@ function App() {
           <Route path="players/:id" element={<PlayerProfile />} />
           <Route path="compare" element={<Compare />} />
           <Route path="compare/:id1/:id2" element={<Compare />} />
+          <Route path="squad-builder" element={<SquadBuilder />} />
+          <Route path="about" element={<About />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>

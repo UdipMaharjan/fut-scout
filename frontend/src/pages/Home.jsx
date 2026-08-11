@@ -1,40 +1,10 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import api from '../services/api'
-import PlayerCard from '../components/player/PlayerCard'
-import LoadingSpinner from '../components/ui/LoadingSpinner'
 
 const Home = () => {
   const navigate = useNavigate()
-  const [players, setPlayers] = useState([])
-  const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
-  const [stats, setStats] = useState(null)
-
-  useEffect(() => {
-    loadPlayers()
-    loadStats()
-  }, [])
-
-  const loadPlayers = async () => {
-    try {
-      const data = await api.listPlayers({ limit: 8 })
-      setPlayers(data.players || [])
-    } catch (error) {
-      console.error('Failed to load players:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const loadStats = async () => {
-    try {
-      const data = await api.health()
-      setStats(data)
-    } catch (error) {
-      console.error('Failed to load stats:', error)
-    }
-  }
 
   const handleSearch = (e) => {
     e.preventDefault()
@@ -43,172 +13,199 @@ const Home = () => {
     }
   }
 
-  const handleSearchClick = () => {
-    if (searchQuery.trim()) {
-      navigate(`/search?q=${encodeURIComponent(searchQuery)}`)
-    }
+  const handleQuickSearch = (name) => {
+    navigate(`/search?q=${encodeURIComponent(name)}`)
   }
+
+  const features = [
+    {
+      icon: (
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+      ),
+      title: 'Smart Search',
+      description: 'Search across thousands of players from major leagues worldwide'
+    },
+    {
+      icon: (
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        </svg>
+      ),
+      title: 'Player Analysis',
+      description: 'View detailed statistics and performance metrics'
+    },
+    {
+      icon: (
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        </svg>
+      ),
+      title: 'Compare Players',
+      description: 'Side-by-side comparison with detailed breakdowns'
+    },
+    {
+      icon: (
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+        </svg>
+      ),
+      title: 'AI Insights',
+      description: 'Get AI-powered scouting reports and analysis'
+    }
+  ]
+
+  const stats = [
+    { value: '50K+', label: 'Players' },
+    { value: '30+', label: 'Leagues' },
+    { value: '20+', label: 'Countries' }
+  ]
 
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
-      <section className="relative bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-900/20 py-20 px-4">
-        <div className="max-w-7xl mx-auto text-center">
-          <h1 className="text-4xl md:text-6xl font-extrabold text-white mb-6">
-            AI-Powered <span className="text-emerald-400">Football Scouting</span>
-          </h1>
-          <p className="text-xl text-slate-300 mb-10 max-w-2xl mx-auto">
-            Discover, analyze, and compare football players with advanced AI insights powered by Groq.
-          </p>
+      <section className="relative overflow-hidden">
+        {/* Background Effects */}
+        <div className="absolute inset-0">
+          <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-[#10b981]/10 rounded-full blur-[120px]" />
+          <div className="absolute top-0 right-1/4 w-[400px] h-[400px] bg-blue-500/5 rounded-full blur-[100px]" />
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#0a0e17]/50 to-[#0a0e17]" />
+        </div>
+
+        <div className="relative max-w-5xl mx-auto px-4 pt-16 pb-20">
+          {/* Badge */}
+          <div className="flex justify-center mb-8">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#10b981]/10 border border-[#10b981]/20 rounded-full text-[#10b981] text-sm font-medium">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#10b981] opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-[#10b981]"></span>
+              </span>
+              Live Data from RapidAPI
+            </div>
+          </div>
+
+          {/* Main Heading */}
+          <div className="text-center mb-8">
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight">
+              The Future of
+              <br />
+              <span className="bg-gradient-to-r from-[#10b981] via-[#34d399] to-[#6ee7b7] bg-clip-text text-transparent">
+                Football Scouting
+              </span>
+            </h1>
+            <p className="text-lg text-[#94a3b8] max-w-2xl mx-auto">
+              AI-powered platform for discovering, analyzing and comparing football players worldwide
+            </p>
+          </div>
 
           {/* Search Form */}
-          <form onSubmit={handleSearch} className="max-w-xl mx-auto">
-            <div className="flex flex-col sm:flex-row gap-3">
-              <input
-                type="text"
-                placeholder="Search for players (e.g., Haaland, Bellingham...)"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="flex-1 px-6 py-4 bg-slate-800/80 border border-slate-600 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-              />
-              <button
-                type="button"
-                onClick={handleSearchClick}
-                className="px-8 py-4 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700 transition-colors flex items-center justify-center space-x-2"
-              >
+          <form onSubmit={handleSearch} className="max-w-2xl mx-auto mb-8">
+            <div className="relative group">
+              {/* Search Icon */}
+              <div className="absolute left-5 top-1/2 -translate-y-1/2 text-[#64748b] group-hover:text-[#10b981] transition-colors">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
-                <span>Search</span>
+              </div>
+
+              <input
+                type="text"
+                placeholder="Search players (e.g. Bellingham, Wirtz, Musiala)"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-14 pr-32 py-4 bg-[#0f172a]/80 backdrop-blur-xl border border-[#1e293b] rounded-xl text-white text-base placeholder-[#64748b] focus:outline-none focus:border-[#10b981]/50 focus:ring-2 focus:ring-[#10b981]/20 transition-all"
+              />
+
+              <button
+                type="submit"
+                className="absolute right-2 top-1/2 -translate-y-1/2 px-5 py-2.5 bg-gradient-to-r from-[#10b981] to-[#059669] text-white font-semibold rounded-lg hover:from-[#059669] hover:to-[#047857] transition-all shadow-lg shadow-emerald-500/20"
+              >
+                Search
               </button>
+            </div>
+
+            {/* Quick Links */}
+            <div className="flex flex-wrap justify-center gap-2 mt-4">
+              <span className="text-[#64748b] text-sm">Popular:</span>
+              {['Haaland', 'Mbappe', 'Bellingham', 'Musiala'].map((name) => (
+                <button
+                  key={name}
+                  onClick={() => handleQuickSearch(name)}
+                  className="px-3 py-1 text-sm bg-[#1e293b]/50 text-[#94a3b8] rounded-lg hover:text-[#10b981] hover:bg-[#1e293b] transition-all border border-transparent hover:border-[#334155]"
+                >
+                  {name}
+                </button>
+              ))}
             </div>
           </form>
 
-          {/* Quick Stats */}
-          <div className="flex flex-wrap justify-center gap-8 mt-12">
-            <div className="text-center">
-              <p className="text-4xl font-bold text-emerald-400">{players.length}+</p>
-              <p className="text-slate-400">Players in DB</p>
-            </div>
-            <div className="text-center">
-              <p className="text-4xl font-bold text-emerald-400">AI</p>
-              <p className="text-slate-400">Powered Insights</p>
-            </div>
-            <div className="text-center">
-              <p className="text-4xl font-bold text-emerald-400">5</p>
-              <p className="text-slate-400">Top Leagues</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Decorative elements */}
-        <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
-          <div className="absolute -top-1/2 -right-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl"></div>
-          <div className="absolute -bottom-1/2 -left-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl"></div>
-        </div>
-      </section>
-
-      {/* Featured Players */}
-      <section className="py-16 px-4 bg-slate-900">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h2 className="text-2xl font-bold text-white">Featured Players</h2>
-              <p className="text-slate-400 mt-1">Browse some of our database entries</p>
-            </div>
-            <Link
-              to="/search"
-              className="text-emerald-400 hover:text-emerald-300 font-medium flex items-center space-x-1"
-            >
-              <span>View All</span>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </Link>
-          </div>
-
-          {loading ? (
-            <div className="py-20">
-              <LoadingSpinner size="lg" text="Loading players..." />
-            </div>
-          ) : players.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {players.map(player => (
-                <PlayerCard key={player.id} player={player} />
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-20">
-              <p className="text-slate-400 text-lg mb-4">No players in database yet.</p>
-              <Link
-                to="/search"
-                className="inline-flex items-center px-6 py-3 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 transition-colors"
+          {/* Stats Cards */}
+          <div className="flex flex-wrap justify-center gap-4 sm:gap-6">
+            {stats.map((stat, index) => (
+              <div
+                key={index}
+                className="px-6 py-3 bg-[#0f172a]/50 backdrop-blur rounded-xl border border-[#1e293b]"
               >
-                Search for Players
-              </Link>
-            </div>
-          )}
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl font-bold text-[#10b981]">{stat.value}</span>
+                  <span className="text-[#64748b] text-sm">{stat.label}</span>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
-      {/* Features Section */}
-      <section className="py-16 px-4 bg-slate-800">
-        <div className="max-w-7xl mx-auto">
-          <h2 className="text-2xl font-bold text-white text-center mb-12">Platform Features</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <FeatureCard
-              icon="🔍"
-              title="Player Search"
-              description="Search across thousands of players from major leagues worldwide with detailed profiles."
-            />
-            <FeatureCard
-              icon="📊"
-              title="Statistics"
-              description="View comprehensive player stats including goals, assists, appearances, and per-90 metrics."
-            />
-            <FeatureCard
-              icon="🤖"
-              title="AI Scouting"
-              description="Get AI-generated scouting reports powered by Groq's LLM technology."
-            />
-            <FeatureCard
-              icon="⚖️"
-              title="Player Comparison"
-              description="Compare multiple players side-by-side with detailed statistical breakdowns."
-            />
-            <FeatureCard
-              icon="🔄"
-              title="Similar Players"
-              description="Find players with similar profiles and playing styles using ML similarity scoring."
-            />
-            <FeatureCard
-              icon="💾"
-              title="Smart Caching"
-              description="Fast responses with intelligent caching of API data and AI-generated reports."
-            />
+      {/* Features Grid */}
+      <section className="py-16 px-4 bg-[#0f172a]/50">
+        <div className="max-w-5xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {features.map((feature, index) => (
+              <div
+                key={index}
+                className="group p-6 bg-[#0f172a] rounded-xl border border-[#1e293b] hover:border-[#10b981]/30 transition-all hover:bg-[#0f172a]/80"
+              >
+                <div className="w-12 h-12 rounded-xl bg-[#10b981]/10 text-[#10b981] flex items-center justify-center mb-4 group-hover:bg-[#10b981]/20 transition-colors">
+                  {feature.icon}
+                </div>
+                <h3 className="text-lg font-semibold text-white mb-2 group-hover:text-[#10b981] transition-colors">
+                  {feature.title}
+                </h3>
+                <p className="text-[#64748b] text-sm leading-relaxed">
+                  {feature.description}
+                </p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
       {/* CTA Section */}
-      <section className="py-16 px-4 bg-gradient-to-r from-emerald-600 to-emerald-700">
+      <section className="py-16 px-4 bg-gradient-to-br from-[#10b981]/10 via-transparent to-transparent">
         <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-3xl font-bold text-white mb-4">Ready to scout?</h2>
-          <p className="text-emerald-100 text-lg mb-8">
-            Start exploring players and unlock AI-powered insights.
+          <h2 className="text-3xl font-bold text-white mb-4">Ready to find your next star?</h2>
+          <p className="text-[#94a3b8] text-lg mb-8 max-w-xl mx-auto">
+            Start exploring players and unlock AI-powered insights to build your perfect squad.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
               to="/search"
-              className="px-8 py-4 bg-white text-emerald-700 font-semibold rounded-xl hover:bg-emerald-50 transition-colors"
+              className="px-8 py-4 bg-gradient-to-r from-[#10b981] to-[#059669] text-white font-semibold rounded-xl hover:from-[#059669] hover:to-[#047857] transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2"
             >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
               Search Players
             </Link>
             <Link
-              to="/compare"
-              className="px-8 py-4 bg-emerald-800 text-white font-semibold rounded-xl hover:bg-emerald-900 transition-colors"
+              to="/squad-builder"
+              className="px-8 py-4 bg-[#1e293b] text-white font-semibold rounded-xl hover:bg-[#334155] transition-all border border-[#334155] flex items-center justify-center gap-2"
             >
-              Compare Players
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              Build Squad
             </Link>
           </div>
         </div>
@@ -216,13 +213,5 @@ const Home = () => {
     </div>
   )
 }
-
-const FeatureCard = ({ icon, title, description }) => (
-  <div className="bg-slate-900 rounded-xl p-6 border border-slate-700 hover:border-emerald-500/30 transition-all">
-    <div className="text-4xl mb-4">{icon}</div>
-    <h3 className="text-lg font-semibold text-white mb-2">{title}</h3>
-    <p className="text-slate-400 text-sm">{description}</p>
-  </div>
-)
 
 export default Home

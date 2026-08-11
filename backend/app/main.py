@@ -10,7 +10,7 @@ from app.config import CORS_ORIGINS, ENVIRONMENT
 from app.database import init_db
 from app.services.rapidapi import rapidapi_client
 from app.services.cache import cache
-from app.routers import players, teams, compare, scout, health
+from app.routers import players, teams, compare, scout, health, player
 
 # Configure logging
 logging.basicConfig(
@@ -60,6 +60,7 @@ app.add_middleware(
 # Include routers
 app.include_router(health.router, prefix="/api")
 app.include_router(players.router, prefix="/api")
+app.include_router(player.router, prefix="/api")
 app.include_router(teams.router, prefix="/api")
 app.include_router(compare.router, prefix="/api")
 app.include_router(scout.router, prefix="/api")

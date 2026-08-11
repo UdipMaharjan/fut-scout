@@ -103,18 +103,18 @@ async def get_team(
                 "cached": True
             }
 
-        # Try API
+        # Try API - fetch team details and logo
         try:
-            response = await rapidapi_client.get_team_detail(team_id)
+            details_response = await rapidapi_client.get_team_details(team_id)
             logo_url = None
             try:
-                logo_url = await rapidapi_client.get_team_image(team_id)
+                logo_url = await rapidapi_client.get_team_logo(team_id)
             except:
                 pass
 
             return {
                 "id": team_id,
-                "response": response,
+                "response": details_response,
                 "logo_url": logo_url,
                 "cached": False
             }
@@ -163,7 +163,7 @@ async def get_team_players(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/{team_id}/save")
+@router.get("/{team_id}/save")
 async def save_team_to_db(
     team_id: int,
     name: str,
@@ -179,10 +179,10 @@ async def save_team_to_db(
             return {"message": "Team already exists", "team_id": team_id}
 
         # Fetch from API
-        response = await rapidapi_client.get_team_detail(team_id)
+        await rapidapi_client.get_team_details(team_id)
         logo_url = None
         try:
-            logo_url = await rapidapi_client.get_team_image(team_id)
+            logo_url = await rapidapi_client.get_team_logo(team_id)
         except:
             pass
 
@@ -201,4 +201,43 @@ async def save_team_to_db(
     except Exception as e:
         logger.error(f"Save team failed: {e}")
         await db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/{team_id}/squad")
+async def get_team_squad(team_id: int):
+    """
+    Get all players for a team from API.
+    """
+    try:
+        squad_data = await rapidapi_client.get_team_squad(team_id)
+        members = squad_data.get("response", {}).get("members", [])
+
+        players = []
+        for member in members:
+            players.append({
+                "id": member.get("id"),
+                "name": member.get("name"),
+                "position": member.get("positionIdsDesc"),
+                "position_id": member.get("positionId"),
+                "age": member.get("age"),
+                "date_of_birth": member.get("dateOfBirth"),
+                "height": member.get("height"),
+                "shirt_number": member.get("shirtNumber"),
+                "transfer_value": member.get("transferValue"),
+                "nationality": member.get("cname"),
+                "country_code": member.get("ccode"),
+                "goals": member.get("goals"),
+                "assists": member.get("assists"),
+                "rating": member.get("rating"),
+            })
+
+        return {
+            "team_id": team_id,
+            "players": players,
+            "count": len(players)
+        }
+
+    except Exception as e:
+        logger.error(f"Get team squad failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))

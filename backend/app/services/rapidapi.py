@@ -55,6 +55,10 @@ class RapidAPIClient:
             return response.json()
 
         except httpx.HTTPStatusError as e:
+            # For rate limiting (429), return empty response instead of raising
+            if e.response.status_code == 429:
+                logger.warning(f"Rate limited on {endpoint}")
+                return {"error": "rate_limited", "response": []}
             logger.error(f"HTTP error {e.response.status_code}: {e.response.text}")
             raise
         except Exception as e:
@@ -63,7 +67,7 @@ class RapidAPIClient:
 
     # ==================== PLAYER ENDPOINTS ====================
 
-    async def search_players(self, query: str) -> List[Dict[str, Any]]:
+    async def search_players(self, query: str) -> Dict[str, Any]:
         """
         Search for players by name.
         GET /football-players-search?search={query}
@@ -87,109 +91,179 @@ class RapidAPIClient:
         )
         return data
 
-    async def get_player_image(self, player_id: int) -> str:
+    async def get_player_logo(self, player_id: int) -> Optional[str]:
         """
         Get player image URL.
-        GET /football-get-player-image?playerid={id}
+        GET /football-get-player-logo?playerid={id}
         """
-        data = await self._request(
-            "GET",
-            "/football-get-player-image",
-            params={"playerid": player_id}
-        )
-        return data.get("response", "")
+        try:
+            data = await self._request(
+                "GET",
+                "/football-get-player-logo",
+                params={"playerid": player_id}
+            )
+            return data.get("response", {}).get("url") or data.get("response")
+        except Exception as e:
+            logger.warning(f"Player logo fetch failed: {e}")
+            return None
 
     async def get_player_statistics(self, player_id: int, season: str = None) -> Dict[str, Any]:
         """
-        Get player statistics.
-        GET /football-get-player-statistics?playerid={id}&season={season}
+        Get player statistics (placeholder - actual stats not available from this API).
         """
-        params = {"playerid": player_id}
-        if season:
-            params["season"] = season
+        # This API doesn't provide player statistics
+        # Return empty stats structure
+        return {"seasons": [], "total": {}}
 
-        data = await self._request(
-            "GET",
-            "/football-get-player-statistics",
-            params=params
-        )
-        return data
+    async def get_team_squad(self, team_id: int) -> Dict[str, Any]:
+        """
+        Get team squad with player details including position.
+        GET /football-get-list-player?teamid={id}
+        """
+        try:
+            data = await self._request(
+                "GET",
+                "/football-get-list-player",
+                params={"teamid": team_id}
+            )
+            return data
+        except Exception as e:
+            logger.warning(f"Team squad fetch failed: {e}")
+            return {}
 
-    async def get_player_matches(self, player_id: int, page: int = 1) -> Dict[str, Any]:
+    async def find_player_in_squad(self, team_id: int, player_id: int) -> Optional[Dict[str, Any]]:
         """
-        Get player's match history.
-        GET /football-get-matchs-by-player-id?playerid={id}&page={page}
+        Find a specific player in a team's squad to get position data.
         """
-        data = await self._request(
-            "GET",
-            "/football-get-matchs-by-player-id",
-            params={"playerid": player_id, "page": page}
-        )
-        return data
+        try:
+            data = await self.get_team_squad(team_id)
+            squad_data = data.get("response", {}).get("list", {}).get("squad", [])
+
+            for section in squad_data:
+                for member in section.get("members", []):
+                    if str(member.get("id")) == str(player_id):
+                        return member
+
+            return None
+        except Exception as e:
+            logger.warning(f"Find player in squad failed: {e}")
+            return None
 
     # ==================== TEAM ENDPOINTS ====================
 
-    async def get_team_detail(self, team_id: int) -> Dict[str, Any]:
+    async def search_teams(self, query: str) -> Dict[str, Any]:
         """
-        Get team details.
-        GET /football-get-team-detail?teamid={id}
+        Search for teams by name.
+        GET /football-teams-search?search={query}
         """
-        data = await self._request(
-            "GET",
-            "/football-get-team-detail",
-            params={"teamid": team_id}
-        )
-        return data
+        try:
+            data = await self._request(
+                "GET",
+                "/football-teams-search",
+                params={"search": query}
+            )
+            return data
+        except Exception as e:
+            logger.warning(f"Team search failed: {e}")
+            return {}
 
-    async def get_team_image(self, team_id: int) -> str:
+    async def get_team_logo(self, team_id: int) -> Optional[str]:
         """
         Get team logo URL.
-        GET /football-get-team-image?teamid={id}
+        GET /football-team-logo?teamid={id}
         """
-        data = await self._request(
-            "GET",
-            "/football-get-team-image",
-            params={"teamid": team_id}
-        )
-        return data.get("response", "")
+        try:
+            data = await self._request(
+                "GET",
+                "/football-team-logo",
+                params={"teamid": team_id}
+            )
+            return data.get("response", {}).get("url") or data.get("response")
+        except Exception as e:
+            logger.warning(f"Team logo fetch failed: {e}")
+            return None
 
-    async def get_team_matches(self, team_id: int, page: int = 1) -> Dict[str, Any]:
+    async def get_team_details(self, team_id: int) -> Dict[str, Any]:
         """
-        Get team's match history.
-        GET /football-get-matchs-by-team-id?teamid={id}&page={page}
+        Get team details (stadium, capacity, country, etc.)
+        GET /football-league-team?teamid={id}
         """
-        data = await self._request(
-            "GET",
-            "/football-get-matchs-by-team-id",
-            params={"teamid": team_id, "page": page}
-        )
-        return data
+        try:
+            data = await self._request(
+                "GET",
+                "/football-league-team",
+                params={"teamid": team_id}
+            )
+            return data
+        except Exception as e:
+            logger.warning(f"Team details fetch failed: {e}")
+            return {}
+
+    async def get_league_teams(self, league_id: int) -> Dict[str, Any]:
+        """
+        Get all teams in a league.
+        GET /football-get-list-all-team?leagueid={id}
+        """
+        try:
+            data = await self._request(
+                "GET",
+                "/football-get-list-all-team",
+                params={"leagueid": league_id}
+            )
+            return data
+        except Exception as e:
+            logger.warning(f"League teams fetch failed: {e}")
+            return {}
 
     # ==================== LEAGUE ENDPOINTS ====================
 
-    async def get_standings(self, league_id: int) -> Dict[str, Any]:
+    async def get_popular_leagues(self) -> Dict[str, Any]:
         """
-        Get league standings.
-        GET /football-get-standing?leagueid={id}
+        Get popular leagues.
+        GET /football-popular-leagues
         """
-        data = await self._request(
-            "GET",
-            "/football-get-standing",
-            params={"leagueid": league_id}
-        )
-        return data
+        try:
+            data = await self._request(
+                "GET",
+                "/football-popular-leagues",
+                params={}
+            )
+            return data
+        except Exception as e:
+            logger.warning(f"Popular leagues fetch failed: {e}")
+            return {}
 
-    async def get_league_matches(self, league_id: int, page: int = 1) -> Dict[str, Any]:
+    async def get_league_seasons(self, league_id: int) -> Dict[str, Any]:
         """
-        Get league matches.
-        GET /football-get-matchs-by-league-id?leagueid={id}&page={page}
+        Get all seasons for a league.
+        GET /football-league-all-seasons?leagueid={id}
         """
-        data = await self._request(
-            "GET",
-            "/football-get-matchs-by-league-id",
-            params={"leagueid": league_id, "page": page}
-        )
-        return data
+        try:
+            data = await self._request(
+                "GET",
+                "/football-league-all-seasons",
+                params={"leagueid": league_id}
+            )
+            return data
+        except Exception as e:
+            logger.warning(f"League seasons fetch failed: {e}")
+            return {}
+
+    async def get_countries(self) -> Dict[str, Any]:
+        """
+        Get all countries.
+        GET /football-get-all-countries
+        """
+        try:
+            data = await self._request(
+                "GET",
+                "/football-get-all-countries",
+                params={}
+            )
+            return data
+        except Exception as e:
+            logger.warning(f"Countries fetch failed: {e}")
+            return {}
 
 
 # Singleton instance

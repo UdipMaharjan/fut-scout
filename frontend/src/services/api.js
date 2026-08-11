@@ -1,4 +1,8 @@
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+// Use relative paths for development proxy
+// For production, set VITE_API_URL to full backend URL
+const API_BASE = import.meta.env.VITE_API_URL && import.meta.env.VITE_API_URL !== ''
+  ? import.meta.env.VITE_API_URL
+  : ''
 
 const api = {
   // Health check
@@ -38,6 +42,27 @@ const api = {
   async getPlayer(id) {
     const res = await fetch(`${API_BASE}/api/players/${id}`)
     if (!res.ok) throw new Error('Player not found')
+    return res.json()
+  },
+
+  // Get comprehensive player data (merged from multiple sources)
+  async getPlayerFull(id) {
+    const res = await fetch(`${API_BASE}/api/player/${id}`)
+    if (!res.ok) throw new Error('Player not found')
+    return res.json()
+  },
+
+  // Enrich player from search results with full data
+  async enrichPlayerFromSearch(playerId, name, teamId, teamName) {
+    let url = `${API_BASE}/api/player/${playerId}/from-search?`
+    const params = []
+    if (name) params.push(`name=${encodeURIComponent(name)}`)
+    if (teamId) params.push(`team_id=${teamId}`)
+    if (teamName) params.push(`team_name=${encodeURIComponent(teamName)}`)
+    url += params.join('&')
+
+    const res = await fetch(url)
+    if (!res.ok) throw new Error('Failed to enrich player')
     return res.json()
   },
 
@@ -95,6 +120,13 @@ const api = {
 
     const res = await fetch(url)
     if (!res.ok) throw new Error('Failed to fetch teams')
+    return res.json()
+  },
+
+  // Get team squad (players from API)
+  async getTeamSquad(teamId) {
+    const res = await fetch(`${API_BASE}/api/teams/${teamId}/squad`)
+    if (!res.ok) throw new Error('Failed to fetch team squad')
     return res.json()
   }
 }
