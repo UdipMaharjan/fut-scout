@@ -19,6 +19,14 @@ logger = logging.getLogger(__name__)
 # Create cache directory
 cache = Cache("./.cache")
 
+# API Usage tracking
+API_USAGE_KEY = "api_usage:daily"
+API_LIMIT = 100
+
+def get_today_key():
+    """Get today's date key for API usage."""
+    return f"{API_USAGE_KEY}:{datetime.now().strftime('%Y-%m-%d')}"
+
 
 class CacheService:
     """Service for caching API responses."""
@@ -64,6 +72,38 @@ class CacheService:
             cache.clear()
         except Exception as e:
             logger.warning(f"Cache clear failed: {e}")
+
+    # ==================== API USAGE TRACKING ====================
+
+    @staticmethod
+    def get_api_usage() -> Dict:
+        """Get today's API usage."""
+        try:
+            today_key = get_today_key()
+            usage = cache.get(today_key) or {"count": 0, "limit": API_LIMIT}
+            return {
+                "used": usage.get("count", 0),
+                "limit": API_LIMIT,
+                "remaining": max(0, API_LIMIT - usage.get("count", 0)),
+                "date": datetime.now().strftime('%Y-%m-%d')
+            }
+        except Exception as e:
+            logger.warning(f"Get API usage failed: {e}")
+            return {"used": 0, "limit": API_LIMIT, "remaining": API_LIMIT, "date": "unknown"}
+
+    @staticmethod
+    def increment_api_usage():
+        """Increment today's API usage counter."""
+        try:
+            today_key = get_today_key()
+            usage = cache.get(today_key) or {"count": 0, "limit": API_LIMIT}
+            usage["count"] = usage.get("count", 0) + 1
+            # Reset at midnight, cache for 48 hours to ensure cleanup
+            cache.set(today_key, usage, expire=60 * 60 * 48)
+            return usage["count"]
+        except Exception as e:
+            logger.warning(f"Increment API usage failed: {e}")
+            return 0
 
     # ==================== PLAYER CACHE ====================
 

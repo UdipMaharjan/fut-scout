@@ -1,365 +1,514 @@
-import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { useState, useRef, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import api from '../services/api'
 
+const FORMATIONS = ['4-3-3', '4-4-2', '4-2-3-1', '3-5-2', '5-3-2']
+
+const POSITIONS = {
+  '4-3-3': {
+    GK: { x: 50, y: 90 },
+    LB: { x: 15, y: 70 },
+    CB1: { x: 35, y: 72 },
+    CB2: { x: 65, y: 72 },
+    RB: { x: 85, y: 70 },
+    CM1: { x: 30, y: 50 },
+    CM2: { x: 50, y: 45 },
+    CM3: { x: 70, y: 50 },
+    LW: { x: 20, y: 25 },
+    ST: { x: 50, y: 20 },
+    RW: { x: 80, y: 25 },
+  },
+  '4-4-2': {
+    GK: { x: 50, y: 90 },
+    LB: { x: 12, y: 68 },
+    CB1: { x: 35, y: 72 },
+    CB2: { x: 65, y: 72 },
+    RB: { x: 88, y: 68 },
+    LM: { x: 12, y: 45 },
+    CM1: { x: 35, y: 48 },
+    CM2: { x: 65, y: 48 },
+    RM: { x: 88, y: 45 },
+    ST1: { x: 35, y: 20 },
+    ST2: { x: 65, y: 20 },
+  },
+  '4-2-3-1': {
+    GK: { x: 50, y: 90 },
+    LB: { x: 12, y: 68 },
+    CB1: { x: 35, y: 72 },
+    CB2: { x: 65, y: 72 },
+    RB: { x: 88, y: 68 },
+    CDM1: { x: 35, y: 55 },
+    CDM2: { x: 65, y: 55 },
+    CAM: { x: 50, y: 38 },
+    LW: { x: 20, y: 25 },
+    RW: { x: 80, y: 25 },
+    ST: { x: 50, y: 15 },
+  },
+  '3-5-2': {
+    GK: { x: 50, y: 90 },
+    CB1: { x: 25, y: 72 },
+    CB2: { x: 50, y: 70 },
+    CB3: { x: 75, y: 72 },
+    LWB: { x: 8, y: 48 },
+    CM1: { x: 30, y: 48 },
+    CM2: { x: 50, y: 45 },
+    CM3: { x: 70, y: 48 },
+    RWB: { x: 92, y: 48 },
+    ST1: { x: 35, y: 20 },
+    ST2: { x: 65, y: 20 },
+  },
+  '5-3-2': {
+    GK: { x: 50, y: 90 },
+    LWB: { x: 8, y: 65 },
+    CB1: { x: 28, y: 70 },
+    CB2: { x: 50, y: 68 },
+    CB3: { x: 72, y: 70 },
+    RWB: { x: 92, y: 65 },
+    CM1: { x: 25, y: 42 },
+    CM2: { x: 50, y: 40 },
+    CM3: { x: 75, y: 42 },
+    ST1: { x: 35, y: 18 },
+    ST2: { x: 65, y: 18 },
+  },
+}
+
+const POSITION_LABELS = {
+  GK: 'GK', LB: 'LB', CB1: 'CB', CB2: 'CB', CB3: 'CB',
+  RB: 'RB', CM1: 'CM', CM2: 'CM', CM3: 'CM',
+  LM: 'LM', RM: 'RM', CDM1: 'CDM', CDM2: 'CDM',
+  LW: 'LW', RW: 'RW', ST: 'ST', ST1: 'ST', ST2: 'ST',
+  CAM: 'CAM', LWB: 'LWB', RWB: 'RWB'
+}
+
 const SquadBuilder = () => {
-  const [formation, setFormation] = useState('4-3-3')
+  const navigate = useNavigate()
   const [squad, setSquad] = useState({})
+  const [formation, setFormation] = useState('4-3-3')
+  const [showPlayerSearch, setShowPlayerSearch] = useState(false)
+  const [searchTargetSlot, setSearchTargetSlot] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState([])
-  const [searching, setSearching] = useState(false)
-  const [selectingPosition, setSelectingPosition] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const searchInputRef = useRef(null)
 
-  const formations = {
-    '4-3-3': {
-      name: '4-3-3',
-      positions: [
-        { id: 'GK', label: 'GK', row: 4, col: 2 },
-        { id: 'LB', label: 'LB', row: 3, col: 1 },
-        { id: 'CB1', label: 'CB', row: 3, col: 2 },
-        { id: 'CB2', label: 'CB', row: 3, col: 3 },
-        { id: 'RB', label: 'RB', row: 3, col: 4 },
-        { id: 'CM1', label: 'CM', row: 2, col: 1.5 },
-        { id: 'CM2', label: 'CM', row: 2, col: 2.5 },
-        { id: 'CM3', label: 'CM', row: 2, col: 3.5 },
-        { id: 'RW', label: 'RW', row: 1, col: 1 },
-        { id: 'ST', label: 'ST', row: 1, col: 2.5 },
-        { id: 'LW', label: 'LW', row: 1, col: 4 },
-      ]
-    },
-    '4-4-2': {
-      name: '4-4-2',
-      positions: [
-        { id: 'GK', label: 'GK', row: 4, col: 2 },
-        { id: 'LB', label: 'LB', row: 3, col: 1 },
-        { id: 'CB1', label: 'CB', row: 3, col: 2 },
-        { id: 'CB2', label: 'CB', row: 3, col: 3 },
-        { id: 'RB', label: 'RB', row: 3, col: 4 },
-        { id: 'LM', label: 'LM', row: 2, col: 1 },
-        { id: 'CM1', label: 'CM', row: 2, col: 2 },
-        { id: 'CM2', label: 'CM', row: 2, col: 3 },
-        { id: 'RM', label: 'RM', row: 2, col: 4 },
-        { id: 'ST1', label: 'ST', row: 1, col: 2 },
-        { id: 'ST2', label: 'ST', row: 1, col: 3 },
-      ]
-    },
-    '4-2-3-1': {
-      name: '4-2-3-1',
-      positions: [
-        { id: 'GK', label: 'GK', row: 4, col: 2 },
-        { id: 'LB', label: 'LB', row: 3, col: 1 },
-        { id: 'CB1', label: 'CB', row: 3, col: 2 },
-        { id: 'CB2', label: 'CB', row: 3, col: 3 },
-        { id: 'RB', label: 'RB', row: 3, col: 4 },
-        { id: 'CDM1', label: 'CDM', row: 2.5, col: 1.5 },
-        { id: 'CDM2', label: 'CDM', row: 2.5, col: 3.5 },
-        { id: 'CAM', label: 'CAM', row: 2, col: 2.5 },
-        { id: 'LW', label: 'LW', row: 1, col: 1 },
-        { id: 'ST', label: 'ST', row: 1, col: 2.5 },
-        { id: 'RW', label: 'RW', row: 1, col: 4 },
-      ]
+  // Position colors
+  const getPositionColor = (posKey) => {
+    const label = POSITION_LABELS[posKey] || posKey
+    const colors = {
+      GK: 'bg-amber-500/20 border-amber-500/50 text-amber-400',
+      DEF: 'bg-blue-500/20 border-blue-500/50 text-blue-400',
+      MID: 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400',
+      ATT: 'bg-red-500/20 border-red-500/50 text-red-400',
     }
+    if (label === 'GK') return colors.GK
+    if (['LB', 'CB', 'RB', 'LWB', 'RWB'].includes(label)) return colors.DEF
+    if (['CM', 'CDM', 'LM', 'RM', 'CAM'].includes(label)) return colors.MID
+    if (['LW', 'RW', 'ST'].includes(label)) return colors.ATT
+    return 'bg-slate-500/20 border-slate-500/50 text-slate-400'
   }
 
-  const handleSearch = async (e) => {
-    e.preventDefault()
-    if (!searchQuery.trim()) return
-
-    setSearching(true)
-    try {
-      const data = await api.searchPlayers(searchQuery, 15)
-      setSearchResults(data.response || [])
-    } catch (err) {
-      console.error('Search failed:', err)
-    } finally {
-      setSearching(false)
-    }
-  }
-
-  const addPlayerToPosition = (player) => {
-    if (!selectingPosition) return
-
-    // Check for duplicates
-    if (Object.values(squad).some(p => p?.id === player.id)) {
-      alert('This player is already in your squad!')
-      return
-    }
-
-    setSquad(prev => ({ ...prev, [selectingPosition]: player }))
-    setSearchResults([])
+  const openPlayerSearch = (slot) => {
+    setSearchTargetSlot(slot)
+    setShowPlayerSearch(true)
     setSearchQuery('')
-    setSelectingPosition(null)
+    setSearchResults([])
+    setTimeout(() => searchInputRef.current?.focus(), 100)
   }
 
-  const removePlayer = (positionId) => {
+  const closePlayerSearch = () => {
+    setShowPlayerSearch(false)
+    setSearchTargetSlot(null)
+    setSearchQuery('')
+    setSearchResults([])
+  }
+
+  const addPlayerToSlot = (player) => {
+    setSquad(prev => ({
+      ...prev,
+      [searchTargetSlot]: player
+    }))
+    closePlayerSearch()
+  }
+
+  const removePlayer = (slot) => {
     setSquad(prev => {
       const newSquad = { ...prev }
-      delete newSquad[positionId]
+      delete newSquad[slot]
       return newSquad
     })
   }
 
-  const squadCount = Object.keys(squad).length
-  const isComplete = squadCount === 11
-
-  const getPositionColor = (position) => {
-    const colors = {
-      GK: 'bg-amber-500/20 text-amber-400',
-      CB: 'bg-blue-500/20 text-blue-400',
-      LB: 'bg-blue-500/20 text-blue-400',
-      RB: 'bg-blue-500/20 text-blue-400',
-      CM: 'bg-emerald-500/20 text-emerald-400',
-      CDM: 'bg-emerald-500/20 text-emerald-400',
-      CAM: 'bg-purple-500/20 text-purple-400',
-      LM: 'bg-emerald-500/20 text-emerald-400',
-      RM: 'bg-emerald-500/20 text-emerald-400',
-      LW: 'bg-orange-500/20 text-orange-400',
-      RW: 'bg-orange-500/20 text-orange-400',
-      ST: 'bg-red-500/20 text-red-400',
-      ST1: 'bg-red-500/20 text-red-400',
-      ST2: 'bg-red-500/20 text-red-400',
-    }
-    return colors[position] || 'bg-[#334155] text-[#94a3b8]'
+  const getPositionForSlot = (slot) => {
+    const label = POSITION_LABELS[slot] || slot
+    if (label === 'GK') return 'Goalkeeper'
+    if (['LB', 'CB', 'RB', 'LWB', 'RWB'].includes(label)) return 'Defender'
+    if (['CM', 'CDM', 'LM', 'RM', 'CAM'].includes(label)) return 'Midfielder'
+    return 'Attacker'
   }
 
-  const currentPositions = formations[formation].positions
+  // Search with debouncing
+  useEffect(() => {
+    if (searchQuery.length < 3) {
+      setSearchResults([])
+      return
+    }
+
+    const timer = setTimeout(async () => {
+      setLoading(true)
+      try {
+        const data = await api.searchPlayers(searchQuery, { limit: 10 })
+        setSearchResults(data.response || [])
+      } catch (err) {
+        console.error('Search failed:', err)
+        setSearchResults([])
+      } finally {
+        setLoading(false)
+      }
+    }, 400)
+
+    return () => clearTimeout(timer)
+  }, [searchQuery])
+
+  const filledSlots = Object.keys(squad).length
 
   return (
     <div className="min-h-screen bg-[#0a0e17]">
       {/* Header */}
-      <div className="bg-[#0f172a]/80 border-b border-[#1e293b]">
-        <div className="max-w-6xl mx-auto px-4 py-8">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="bg-slate-900/50 border-b border-slate-800">
+        <div className="max-w-7xl mx-auto px-4 py-6">
+          <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-white mb-2">Squad Builder</h1>
-              <p className="text-[#64748b]">
-                Build your dream XI with {squadCount}/11 players
-                {isComplete && <span className="text-[#10b981] ml-2">- Squad Complete!</span>}
-              </p>
+              <h1 className="text-2xl font-bold text-white flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
+                  </svg>
+                </div>
+                Squad Builder
+              </h1>
+              <p className="text-slate-400 mt-1">Build your dream XI with players from around the world</p>
             </div>
 
-            {/* Formation Selector */}
-            <div className="flex items-center gap-3">
-              <span className="text-[#64748b] text-sm">Formation:</span>
-              <select
-                value={formation}
-                onChange={(e) => setFormation(e.target.value)}
-                className="px-4 py-2 bg-[#0a0e17] border border-[#1e293b] rounded-lg text-white focus:outline-none focus:border-[#10b981]/50"
-              >
-                {Object.keys(formations).map(f => (
-                  <option key={f} value={f}>{f}</option>
-                ))}
-              </select>
+            <div className="flex items-center gap-4">
+              {/* Formation Selector */}
+              <div className="flex items-center gap-2">
+                <span className="text-slate-400 text-sm">Formation:</span>
+                <select
+                  value={formation}
+                  onChange={(e) => {
+                    setFormation(e.target.value)
+                    setSquad({})
+                  }}
+                  className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white font-medium focus:outline-none focus:border-emerald-500"
+                >
+                  {FORMATIONS.map(f => (
+                    <option key={f} value={f}>{f}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Squad Count */}
+              <div className="bg-slate-800 rounded-lg px-4 py-2 border border-slate-700">
+                <span className="text-white font-medium">{filledSlots}</span>
+                <span className="text-slate-400"> / 11 Players</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-4 py-8">
-        {/* Football Pitch */}
-        <div className="relative bg-gradient-to-b from-[#1a472a] via-[#228b22] to-[#1a472a] rounded-xl overflow-hidden aspect-[2/3] sm:aspect-[3/4] lg:aspect-[4/3] max-h-[600px] mx-auto">
-          {/* Pitch Lines */}
-          <div className="absolute inset-4 border-2 border-white/20 rounded-lg">
-            {/* Center Line */}
-            <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-white/20" />
-            {/* Center Circle */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full border-2 border-white/20" />
-            {/* Goal Box */}
-            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-48 h-16 border-2 border-white/20 border-b-0" />
-            {/* Penalty Spot */}
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-1 h-1 bg-white/50 rounded-full" />
-          </div>
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Pitch */}
+          <div className="lg:col-span-2">
+            <div className="relative aspect-[3/4] max-h-[700px] mx-auto w-full">
+              {/* Pitch Background */}
+              <div className="absolute inset-0 bg-gradient-to-b from-emerald-900/30 to-emerald-800/30 rounded-2xl border-2 border-emerald-700/50 overflow-hidden">
+                {/* Pitch Lines */}
+                <svg className="absolute inset-0 w-full h-full opacity-30" viewBox="0 0 100 100" preserveAspectRatio="none">
+                  {/* Outer Box */}
+                  <rect x="5" y="70" width="90" height="25" fill="none" stroke="white" strokeWidth="0.5" />
+                  {/* Goal Box */}
+                  <rect x="25" y="85" width="50" height="12" fill="none" stroke="white" strokeWidth="0.5" />
+                  {/* Center Circle */}
+                  <circle cx="50" cy="50" r="12" fill="none" stroke="white" strokeWidth="0.5" />
+                  <line x1="50" y1="0" x2="50" y2="100" stroke="white" strokeWidth="0.5" />
+                  {/* Penalty Spot */}
+                  <circle cx="50" cy="88" r="0.5" fill="white" />
+                </svg>
 
-          {/* Player Positions */}
-          {currentPositions.map((pos) => {
-            const player = squad[pos.id]
-            const topPercent = (pos.row / 5) * 100
-            const leftPercent = (pos.col / 5) * 100
+                {/* Player Slots */}
+                {Object.entries(POSITIONS[formation]).map(([slot, pos]) => {
+                  const player = squad[slot]
+                  const slotLabel = POSITION_LABELS[slot] || slot
 
-            return (
-              <div
-                key={pos.id}
-                className="absolute transform -translate-x-1/2 -translate-y-1/2"
-                style={{ top: `${topPercent}%`, left: `${leftPercent}%` }}
-              >
-                {player ? (
-                  <div className="relative group">
-                    <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full overflow-hidden bg-[#0f172a] border-2 border-[#10b981] shadow-lg">
-                      {player.image_url ? (
-                        <img
-                          src={player.image_url}
-                          alt={player.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-xl font-bold text-[#475569]">
-                          {player.name?.charAt(0)}
+                  return (
+                    <div
+                      key={slot}
+                      className="absolute transform -translate-x-1/2 -translate-y-1/2"
+                      style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
+                    >
+                      {player ? (
+                        <div className="relative group">
+                          {/* Player Card */}
+                          <div className={`w-16 h-20 sm:w-20 sm:h-24 rounded-xl border-2 ${getPositionColor(slot)} bg-slate-900/90 backdrop-blur shadow-xl overflow-hidden transition-all group-hover:scale-105 cursor-pointer`}
+                            onClick={() => removePlayer(slot)}
+                          >
+                            <div className="w-full h-2/3 bg-slate-800 flex items-center justify-center overflow-hidden">
+                              {player.photo || player.image_url ? (
+                                <img
+                                  src={player.photo || player.image_url}
+                                  alt={player.name}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.target.style.display = 'none'
+                                  }}
+                                />
+                              ) : (
+                                <span className="text-2xl font-bold text-slate-600">{player.name?.charAt(0)}</span>
+                              )}
+                            </div>
+                            <div className="h-1/3 flex flex-col items-center justify-center p-1">
+                              <span className="text-xs font-bold text-white truncate w-full text-center">{player.name?.split(' ').pop()}</span>
+                              <span className={`text-[10px] font-medium ${getPositionColor(slot).split(' ')[2]}`}>{slotLabel}</span>
+                            </div>
+                          </div>
+
+                          {/* Remove Button */}
+                          <button
+                            className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              removePlayer(slot)
+                            }}
+                          >
+                            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
                         </div>
+                      ) : (
+                        /* Empty Slot */
+                        <button
+                          onClick={() => openPlayerSearch(slot)}
+                          className={`w-16 h-20 sm:w-20 sm:h-24 rounded-xl border-2 border-dashed ${getPositionColor(slot)} bg-slate-900/50 backdrop-blur flex flex-col items-center justify-center gap-1 hover:bg-slate-800/70 transition-all`}
+                        >
+                          <span className={`text-lg font-bold ${getPositionColor(slot).split(' ')[2]}`}>{slotLabel}</span>
+                          <svg className={`w-5 h-5 ${getPositionColor(slot).split(' ')[2]} opacity-60`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                          </svg>
+                        </button>
                       )}
                     </div>
-                    {/* Rating Badge */}
-                    {player.rating && (
-                      <div className="absolute -top-1 -right-1 w-6 h-6 bg-[#10b981] rounded-full flex items-center justify-center text-white text-xs font-bold">
-                        {player.rating}
-                      </div>
-                    )}
-                    {/* Remove Button */}
-                    <button
-                      onClick={() => removePlayer(pos.id)}
-                      className="absolute -top-2 -left-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      ×
-                    </button>
-                    {/* Player Name */}
-                    <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 px-2 py-0.5 bg-[#0a0e17]/90 rounded text-white text-xs font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                      {player.name?.split(' ').pop()}
-                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Squad List */}
+          <div className="space-y-4">
+            <div className="bg-slate-900 rounded-2xl border border-slate-800 p-5">
+              <h3 className="text-lg font-semibold text-white mb-4">Your Squad</h3>
+
+              {filledSlots === 0 ? (
+                <p className="text-slate-500 text-sm text-center py-8">
+                  Click on a position above to add players
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {/* Goalkeepers */}
+                  <div className="space-y-1">
+                    <p className="text-xs text-slate-500 uppercase tracking-wider">Goalkeeper</p>
+                    {Object.entries(squad).filter(([slot]) => POSITION_LABELS[slot] === 'GK').map(([slot, player]) => (
+                      <SquadPlayerRow key={slot} player={player} position={POSITION_LABELS[slot]} onRemove={() => removePlayer(slot)} />
+                    ))}
                   </div>
-                ) : (
-                  <button
-                    onClick={() => setSelectingPosition(pos.id)}
-                    className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-[#0a0e17]/80 border-2 border-dashed border-white/30 hover:border-[#10b981] hover:bg-[#0f172a] transition-all flex flex-col items-center justify-center"
-                  >
-                    <span className="text-white/50 text-lg font-bold">{pos.label}</span>
-                    <span className="text-white/30 text-xs">+</span>
-                  </button>
-                )}
-              </div>
-            )
-          })}
-        </div>
 
-        {/* Legend */}
-        <div className="flex flex-wrap justify-center gap-4 mt-6 text-sm">
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded-full bg-[#10b981]" />
-            <span className="text-[#64748b]">Filled</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded-full border-2 border-dashed border-white/30" />
-            <span className="text-[#64748b]">Empty</span>
-          </div>
-        </div>
+                  {/* Defenders */}
+                  <div className="space-y-1">
+                    <p className="text-xs text-slate-500 uppercase tracking-wider mt-4">Defenders</p>
+                    {Object.entries(squad).filter(([slot]) => ['LB', 'CB', 'RB', 'LWB', 'RWB'].includes(POSITION_LABELS[slot])).map(([slot, player]) => (
+                      <SquadPlayerRow key={slot} player={player} position={POSITION_LABELS[slot]} onRemove={() => removePlayer(slot)} />
+                    ))}
+                  </div>
 
-        {/* Player Search Modal */}
-        {selectingPosition && (
-          <div className="fixed inset-0 bg-black/70 z-50 flex items-start justify-center pt-20 px-4">
-            <div className="bg-[#0f172a] rounded-xl w-full max-w-md border border-[#1e293b] shadow-2xl">
-              <div className="p-4 border-b border-[#1e293b] flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-white">
-                  Add Player - {selectingPosition}
-                </h3>
-                <button
-                  onClick={() => setSelectingPosition(null)}
-                  className="text-[#64748b] hover:text-white"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
+                  {/* Midfielders */}
+                  <div className="space-y-1">
+                    <p className="text-xs text-slate-500 uppercase tracking-wider mt-4">Midfielders</p>
+                    {Object.entries(squad).filter(([slot]) => ['CM', 'CDM', 'CAM', 'LM', 'RM'].includes(POSITION_LABELS[slot])).map(([slot, player]) => (
+                      <SquadPlayerRow key={slot} player={player} position={POSITION_LABELS[slot]} onRemove={() => removePlayer(slot)} />
+                    ))}
+                  </div>
 
-              <form onSubmit={handleSearch} className="p-4">
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="Search player name..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="flex-1 px-4 py-2.5 bg-[#0a0e17] border border-[#1e293b] rounded-lg text-white placeholder-[#64748b] focus:outline-none focus:border-[#10b981]/50"
-                    autoFocus
-                  />
-                  <button
-                    type="submit"
-                    disabled={searching}
-                    className="px-4 py-2.5 bg-[#10b981] text-white rounded-lg hover:bg-[#059669] transition-colors disabled:opacity-50"
-                  >
-                    {searching ? '...' : 'Search'}
-                  </button>
+                  {/* Attackers */}
+                  <div className="space-y-1">
+                    <p className="text-xs text-slate-500 uppercase tracking-wider mt-4">Attackers</p>
+                    {Object.entries(squad).filter(([slot]) => ['LW', 'RW', 'ST'].includes(POSITION_LABELS[slot])).map(([slot, player]) => (
+                      <SquadPlayerRow key={slot} player={player} position={POSITION_LABELS[slot]} onRemove={() => removePlayer(slot)} />
+                    ))}
+                  </div>
                 </div>
-              </form>
+              )}
+            </div>
 
-              <div className="max-h-80 overflow-y-auto">
-                {searchResults.map((player) => (
-                  <button
-                    key={player.id}
-                    onClick={() => addPlayerToPosition(player)}
-                    className="w-full px-4 py-3 flex items-center gap-3 hover:bg-[#1e293b] transition-colors text-left border-b border-[#1e293b]/50 last:border-0"
-                  >
-                    {player.image_url && (
-                      <img src={player.image_url} alt="" className="w-10 h-10 rounded-lg object-cover bg-[#1e293b]" />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-white font-medium truncate">{player.name}</p>
-                      <div className="flex items-center gap-2 text-sm">
-                        <span className={`px-1.5 py-0.5 rounded text-xs ${getPositionColor(player.position)}`}>
-                          {player.position || 'N/A'}
-                        </span>
-                        <span className="text-[#64748b]">{player.team_name || player.club}</span>
-                      </div>
-                    </div>
-                    {player.rating && (
-                      <span className="w-8 h-8 bg-[#10b981] rounded-lg flex items-center justify-center text-white font-bold text-sm">
-                        {player.rating}
-                      </span>
-                    )}
-                  </button>
-                ))}
+            {/* Clear Button */}
+            {filledSlots > 0 && (
+              <button
+                onClick={() => setSquad({})}
+                className="w-full py-3 bg-slate-800 text-slate-400 rounded-xl hover:bg-red-500/20 hover:text-red-400 transition-all border border-slate-700"
+              >
+                Clear Squad
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
 
-                {searching && (
-                  <div className="p-8 text-center text-[#64748b]">Searching...</div>
-                )}
+      {/* Player Search Modal */}
+      {showPlayerSearch && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 rounded-2xl border border-slate-700 w-full max-w-lg max-h-[80vh] overflow-hidden">
+            {/* Header */}
+            <div className="p-4 border-b border-slate-800 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-white">Add Player</h3>
+                <p className="text-sm text-slate-400">
+                  Position: <span className={`font-medium ${getPositionColor(searchTargetSlot).split(' ')[2]}`}>{POSITION_LABELS[searchTargetSlot]}</span>
+                </p>
+              </div>
+              <button
+                onClick={closePlayerSearch}
+                className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
 
-                {!searching && searchQuery && searchResults.length === 0 && (
-                  <div className="p-8 text-center text-[#64748b]">No players found</div>
+            {/* Search Input */}
+            <div className="p-4">
+              <div className="relative">
+                <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  placeholder="Search for a player..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                />
+                {loading && (
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                    <div className="w-5 h-5 border-2 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin" />
+                  </div>
                 )}
               </div>
             </div>
-          </div>
-        )}
 
-        {/* Squad Summary */}
-        {squadCount > 0 && (
-          <div className="mt-8 bg-[#0f172a] rounded-xl border border-[#1e293b] p-6">
-            <h3 className="text-lg font-semibold text-white mb-4">Squad Summary</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
-              {currentPositions.map((pos) => {
-                const player = squad[pos.id]
-                return (
-                  <div
-                    key={pos.id}
-                    className={`p-3 rounded-lg border ${
-                      player ? 'bg-[#0a0e17] border-[#1e293b]' : 'border-dashed border-[#334155]'
-                    }`}
-                  >
-                    <p className="text-[#64748b] text-xs mb-1">{pos.id}</p>
-                    {player ? (
-                      <Link
-                        to={`/players/${player.id}`}
-                        className="flex items-center gap-2 hover:text-[#10b981] transition-colors"
-                      >
-                        {player.image_url && (
-                          <img src={player.image_url} alt="" className="w-8 h-8 rounded object-cover" />
-                        )}
-                        <span className="text-white text-sm font-medium truncate">{player.name}</span>
-                      </Link>
-                    ) : (
+            {/* Results */}
+            <div className="px-4 pb-4 max-h-80 overflow-y-auto">
+              {searchQuery.length < 3 ? (
+                <p className="text-slate-500 text-sm text-center py-8">Type at least 3 characters to search</p>
+              ) : searchResults.length === 0 && !loading ? (
+                <p className="text-slate-500 text-sm text-center py-8">No players found</p>
+              ) : (
+                <div className="space-y-2">
+                  {searchResults.map((player) => {
+                    const isAlreadyAdded = Object.values(squad).some(p => p?.id === player.id)
+                    return (
                       <button
-                        onClick={() => setSelectingPosition(pos.id)}
-                        className="text-[#475569] text-sm hover:text-[#10b981] transition-colors"
+                        key={player.id}
+                        onClick={() => !isAlreadyAdded && addPlayerToSlot(player)}
+                        disabled={isAlreadyAdded}
+                        className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${
+                          isAlreadyAdded
+                            ? 'bg-slate-800/50 opacity-50 cursor-not-allowed'
+                            : 'bg-slate-800 hover:bg-slate-700 border border-transparent hover:border-emerald-500/30'
+                        }`}
                       >
-                        Empty
+                        {/* Player Image */}
+                        <div className="w-12 h-12 rounded-lg bg-slate-700 flex-shrink-0 overflow-hidden">
+                          {player.photo || player.image_url ? (
+                            <img
+                              src={player.photo || player.image_url}
+                              alt={player.name}
+                              className="w-full h-full object-cover"
+                              onError={(e) => e.target.style.display = 'none'}
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-lg font-bold text-slate-500">
+                              {player.name?.charAt(0)}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Player Info */}
+                        <div className="flex-1 text-left">
+                          <p className="text-white font-medium">{player.name}</p>
+                          <p className="text-slate-400 text-sm">
+                            {player.team_name || 'Unknown'} • {player.nationality}
+                          </p>
+                        </div>
+
+                        {/* Position & Status */}
+                        <div className="text-right">
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${getPositionColor(player.position)}`}>
+                            {player.position}
+                          </span>
+                          {isAlreadyAdded && (
+                            <p className="text-xs text-slate-500 mt-1">Already in squad</p>
+                          )}
+                        </div>
                       </button>
-                    )}
-                  </div>
-                )
-              })}
+                    )
+                  })}
+                </div>
+              )}
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }
+
+const SquadPlayerRow = ({ player, position, onRemove }) => (
+  <div className="flex items-center gap-3 p-2 bg-slate-800/50 rounded-lg group">
+    <div className="w-8 h-8 rounded bg-slate-700 flex-shrink-0 overflow-hidden">
+      {player.photo || player.image_url ? (
+        <img
+          src={player.photo || player.image_url}
+          alt={player.name}
+          className="w-full h-full object-cover"
+          onError={(e) => e.target.style.display = 'none'}
+        />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center text-sm font-bold text-slate-500">
+          {player.name?.charAt(0)}
+        </div>
+      )}
+    </div>
+    <div className="flex-1 min-w-0">
+      <p className="text-white text-sm font-medium truncate">{player.name}</p>
+      <p className="text-slate-500 text-xs">{player.team_name}</p>
+    </div>
+    <span className="text-xs text-slate-400 font-medium px-2 py-1 bg-slate-700 rounded">
+      {position}
+    </span>
+    <button
+      onClick={onRemove}
+      className="p-1 text-slate-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+    >
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    </button>
+  </div>
+)
 
 export default SquadBuilder

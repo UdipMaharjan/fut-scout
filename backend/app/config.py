@@ -6,10 +6,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# RapidAPI
-RAPIDAPI_KEY = os.getenv("RAPIDAPI_KEY", "")
-RAPIDAPI_HOST = os.getenv("RAPIDAPI_HOST", "free-api-live-football-data.p.rapidapi.com")
-RAPIDAPI_BASE_URL = f"https://{RAPIDAPI_HOST}"
+# API-Football
+API_FOOTBALL_KEY = os.getenv("API_FOOTBALL_KEY", "f2cdf6298afcfa7a9ef93c1faafa741c")
+API_FOOTBALL_HOST = os.getenv("API_FOOTBALL_HOST", "v3.football.api-sports.io")
+API_FOOTBALL_BASE_URL = f"https://{API_FOOTBALL_HOST}"
 
 # LLM (Groq)
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")

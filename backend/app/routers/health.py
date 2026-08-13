@@ -2,8 +2,8 @@
 FutScout - Health Check Endpoints
 """
 from fastapi import APIRouter
-from app.services.cache import cache
-from app.config import RAPIDAPI_KEY
+from app.services.cache import cache, CacheService
+from app.config import API_FOOTBALL_KEY
 
 router = APIRouter(tags=["Health"])
 
@@ -32,9 +32,11 @@ async def root():
 async def get_stats():
     """Get API usage statistics."""
     cache_size = len(cache) if cache else 0
+    api_usage = CacheService.get_api_usage()
 
     return {
         "cache_entries": cache_size,
-        "rapidapi_configured": bool(RAPIDAPI_KEY),
-        "environment": "development"
+        "api_football_configured": bool(API_FOOTBALL_KEY),
+        "environment": "development",
+        "api_usage": api_usage
     }

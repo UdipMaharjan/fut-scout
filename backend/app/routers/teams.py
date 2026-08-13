@@ -2,126 +2,99 @@
 FutScout - Team Endpoints
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
 from typing import Optional
 import logging
 
-from app.database import get_db
-from app.models.team import Team
-from app.models.player import Player
-from app.services.rapidapi import rapidapi_client
+from app.services.api_football import api_client
 from app.services.cache import cache_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/teams", tags=["Teams"])
 
 
-@router.get("/")
-async def list_teams(
-    league: Optional[str] = Query(None, description="Filter by league"),
-    page: int = Query(1, ge=1),
-    limit: int = Query(20, ge=1, le=100),
-    db: AsyncSession = Depends(get_db)
+@router.get("/search")
+async def search_teams(
+    q: str = Query(..., min_length=1, description="Search query")
 ):
     """
-    List teams from local database.
+    Search for teams by name.
     """
     try:
-        query = select(Team)
+        # Check cache
+        cached = cache_service.get(f"team_search:{q}")
+        if cached:
+            return {**cached, "cached": True}
 
-        if league:
-            query = query.filter(Team.league.ilike(f"%{league}%"))
+        # Search teams
+        response = await api_client.search_teams(q)
+        results = response.get("response", [])
 
-        # Count
-        count_query = select(func.count()).select_from(query.subquery())
-        total = await db.scalar(count_query)
+        teams = []
+        for item in results:
+            team = item.get("team", {})
+            teams.append({
+                "id": team.get("id"),
+                "name": team.get("name"),
+                "logo": team.get("logo"),
+                "country": item.get("country"),
+            })
 
-        # Paginate
-        offset = (page - 1) * limit
-        query = query.offset(offset).limit(limit).order_by(Team.name)
-
-        result = await db.execute(query)
-        teams = result.scalars().all()
-
-        return {
-            "teams": [
-                {
-                    "id": t.id,
-                    "name": t.name,
-                    "short_name": t.short_name,
-                    "logo_url": t.logo_url,
-                    "league": t.league,
-                    "country": t.country
-                }
-                for t in teams
-            ],
-            "count": total or 0,
-            "page": page,
-            "limit": limit
+        result = {
+            "response": teams,
+            "count": len(teams),
+            "query": q,
         }
 
+        # Cache for 30 days
+        cache_service.set(f"team_search:{q}", result, ttl=3600 * 24 * 30)
+
+        return {**result, "cached": False}
+
     except Exception as e:
-        logger.error(f"List teams failed: {e}")
+        logger.error(f"Team search failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/{team_id}")
-async def get_team(
-    team_id: int,
-    db: AsyncSession = Depends(get_db)
-):
+async def get_team(team_id: int):
     """
-    Get team details from local database.
-    Falls back to API if not found.
+    Get team details with squad.
     """
     try:
-        team = await db.get(Team, team_id)
+        # Check cache
+        cached = cache_service.get(f"team:{team_id}")
+        if cached:
+            return {**cached, "cached": True}
 
-        if team:
-            # Get players
-            players_query = select(Player).where(Player.team_id == team_id)
-            players_result = await db.execute(players_query)
-            players = players_result.scalars().all()
+        # Get team
+        response = await api_client.get_team(team_id)
+        results = response.get("response", [])
 
-            return {
-                "id": team.id,
-                "name": team.name,
-                "short_name": team.short_name,
-                "logo_url": team.logo_url,
-                "league": team.league,
-                "league_id": team.league_id,
-                "country": team.country,
-                "players": [
-                    {
-                        "id": p.id,
-                        "name": p.name,
-                        "position": p.position
-                    }
-                    for p in players
-                ],
-                "cached": True
-            }
-
-        # Try API - fetch team details and logo
-        try:
-            details_response = await rapidapi_client.get_team_details(team_id)
-            logo_url = None
-            try:
-                logo_url = await rapidapi_client.get_team_logo(team_id)
-            except:
-                pass
-
-            return {
-                "id": team_id,
-                "response": details_response,
-                "logo_url": logo_url,
-                "cached": False
-            }
-
-        except Exception as api_error:
-            logger.error(f"API team fetch failed: {api_error}")
+        if not results:
             raise HTTPException(status_code=404, detail="Team not found")
+
+        item = results[0]
+        team = item.get("team", {})
+        venue = item.get("venue", {})
+
+        team_data = {
+            "id": team.get("id"),
+            "name": team.get("name"),
+            "logo": team.get("logo"),
+            "country": item.get("country"),
+            "founded": item.get("founded"),
+            "venue": {
+                "name": venue.get("name"),
+                "city": venue.get("city"),
+                "capacity": venue.get("capacity"),
+                "image": venue.get("image"),
+            }
+        }
+
+        # Cache for 30 days
+        cache_service.set(f"team:{team_id}", team_data, ttl=3600 * 24 * 30)
+
+        return {**team_data, "cached": False}
 
     except HTTPException:
         raise
@@ -130,114 +103,72 @@ async def get_team(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/{team_id}/players")
-async def get_team_players(
-    team_id: int,
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    Get all players for a team.
-    """
-    try:
-        query = select(Player).where(Player.team_id == team_id)
-        result = await db.execute(query)
-        players = result.scalars().all()
-
-        return {
-            "team_id": team_id,
-            "players": [
-                {
-                    "id": p.id,
-                    "name": p.name,
-                    "position": p.position,
-                    "age": p.age,
-                    "nationality": p.nationality
-                }
-                for p in players
-            ],
-            "count": len(players)
-        }
-
-    except Exception as e:
-        logger.error(f"Get team players failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/{team_id}/save")
-async def save_team_to_db(
-    team_id: int,
-    name: str,
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    Save team from API to local database.
-    """
-    try:
-        # Check if exists
-        existing = await db.get(Team, team_id)
-        if existing:
-            return {"message": "Team already exists", "team_id": team_id}
-
-        # Fetch from API
-        await rapidapi_client.get_team_details(team_id)
-        logo_url = None
-        try:
-            logo_url = await rapidapi_client.get_team_logo(team_id)
-        except:
-            pass
-
-        team = Team(
-            id=team_id,
-            name=name,
-            logo_url=logo_url,
-            cached_at=None
-        )
-
-        db.add(team)
-        await db.commit()
-
-        return {"message": "Team saved", "team_id": team_id}
-
-    except Exception as e:
-        logger.error(f"Save team failed: {e}")
-        await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
-
-
 @router.get("/{team_id}/squad")
-async def get_team_squad(team_id: int):
+async def get_team_squad(
+    team_id: int,
+    season: int = Query(2024, description="Season year")
+):
     """
-    Get all players for a team from API.
+    Get team squad (players with their stats).
     """
     try:
-        squad_data = await rapidapi_client.get_team_squad(team_id)
-        members = squad_data.get("response", {}).get("members", [])
+        # Check cache
+        cached = cache_service.get(f"team_squad:{team_id}:{season}")
+        if cached:
+            return {**cached, "cached": True}
+
+        # Get squad
+        response = await api_client.get_team_squad(team_id, season=season)
+        results = response.get("response", [])
 
         players = []
-        for member in members:
+        for item in results:
+            player = item.get("player", {})
+            stats = item.get("statistics", [])
+
+            # Get main stats
+            main_stats = stats[0] if stats else {}
+            games = main_stats.get("games", {})
+
             players.append({
-                "id": member.get("id"),
-                "name": member.get("name"),
-                "position": member.get("positionIdsDesc"),
-                "position_id": member.get("positionId"),
-                "age": member.get("age"),
-                "date_of_birth": member.get("dateOfBirth"),
-                "height": member.get("height"),
-                "shirt_number": member.get("shirtNumber"),
-                "transfer_value": member.get("transferValue"),
-                "nationality": member.get("cname"),
-                "country_code": member.get("ccode"),
-                "goals": member.get("goals"),
-                "assists": member.get("assists"),
-                "rating": member.get("rating"),
+                "id": player.get("id"),
+                "name": player.get("name"),
+                "photo": player.get("photo"),
+                "age": player.get("age"),
+                "position": games.get("position"),
+                "team_id": team_id,
+                "appearances": games.get("appearences", 0),
+                "rating": games.get("rating"),
+                "goals": main_stats.get("goals", {}).get("total", 0),
+                "assists": main_stats.get("goals", {}).get("assists", 0),
             })
 
-        return {
+        # Sort by position then name
+        position_order = {"Goalkeeper": 0, "Defender": 1, "Midfielder": 2, "Attacker": 3}
+        players.sort(key=lambda p: (position_order.get(p["position"], 99), p["name"]))
+
+        result = {
             "team_id": team_id,
             "players": players,
-            "count": len(players)
+            "count": len(players),
         }
+
+        # Cache for 1 day
+        cache_service.set(f"team_squad:{team_id}:{season}", result, ttl=3600 * 24)
+
+        return {**result, "cached": False}
 
     except Exception as e:
         logger.error(f"Get team squad failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/{team_id}/players")
+async def get_team_players(
+    team_id: int,
+    season: int = Query(2024, description="Season year")
+):
+    """
+    Get players from a team - alias for squad endpoint.
+    """
+    return await get_team_squad(team_id, season=season)

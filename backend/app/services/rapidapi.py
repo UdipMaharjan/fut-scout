@@ -1,24 +1,25 @@
 """
-FutScout - RapidAPI Football Client
+FutScout - RapidAPI Football Client (Legacy - Now using API-Football)
+This file is kept for backward compatibility but uses API-Football now.
 """
 import httpx
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 import logging
 
-from app.config import RAPIDAPI_KEY, RAPIDAPI_HOST, RAPIDAPI_BASE_URL
+from app.config import API_FOOTBALL_KEY, API_FOOTBALL_HOST, API_FOOTBALL_BASE_URL
 
 logger = logging.getLogger(__name__)
 
 
 class RapidAPIClient:
-    """Client for RapidAPI Football Data."""
+    """Client for RapidAPI Football Data - now using API-Football."""
 
     def __init__(self):
-        self.base_url = RAPIDAPI_BASE_URL
+        self.base_url = API_FOOTBALL_BASE_URL
         self.headers = {
-            "x-rapidapi-host": RAPIDAPI_HOST,
-            "x-rapidapi-key": RAPIDAPI_KEY,
+            "x-apisports-host": API_FOOTBALL_HOST,
+            "x-apisports-key": API_FOOTBALL_KEY,
             "Content-Type": "application/json"
         }
         self._client: Optional[httpx.AsyncClient] = None
@@ -55,7 +56,6 @@ class RapidAPIClient:
             return response.json()
 
         except httpx.HTTPStatusError as e:
-            # For rate limiting (429), return empty response instead of raising
             if e.response.status_code == 429:
                 logger.warning(f"Rate limited on {endpoint}")
                 return {"error": "rate_limited", "response": []}
@@ -67,64 +67,47 @@ class RapidAPIClient:
 
     # ==================== PLAYER ENDPOINTS ====================
 
-    async def search_players(self, query: str) -> Dict[str, Any]:
-        """
-        Search for players by name.
-        GET /football-players-search?search={query}
-        """
+    async def search_players(self, query: str, season: int = 2024) -> Dict[str, Any]:
+        """Search for players by name."""
         data = await self._request(
             "GET",
-            "/football-players-search",
-            params={"search": query}
+            "/players",
+            params={"search": query, "season": season}
         )
         return data
 
-    async def get_player_detail(self, player_id: int) -> Dict[str, Any]:
-        """
-        Get player details (bio, age, height, market value, etc.)
-        GET /football-get-player-detail?playerid={id}
-        """
+    async def get_player_detail(self, player_id: int, season: int = 2024) -> Dict[str, Any]:
+        """Get player details."""
         data = await self._request(
             "GET",
-            "/football-get-player-detail",
-            params={"playerid": player_id}
+            "/players",
+            params={"id": player_id, "season": season}
         )
         return data
 
     async def get_player_logo(self, player_id: int) -> Optional[str]:
-        """
-        Get player image URL.
-        GET /football-get-player-logo?playerid={id}
-        """
+        """Get player image URL."""
         try:
-            data = await self._request(
-                "GET",
-                "/football-get-player-logo",
-                params={"playerid": player_id}
-            )
-            return data.get("response", {}).get("url") or data.get("response")
+            data = await self.get_player_detail(player_id)
+            response = data.get("response", [])
+            if response and len(response) > 0:
+                return response[0].get("player", {}).get("photo")
         except Exception as e:
             logger.warning(f"Player logo fetch failed: {e}")
-            return None
+        return None
 
-    async def get_player_statistics(self, player_id: int, season: str = None) -> Dict[str, Any]:
-        """
-        Get player statistics (placeholder - actual stats not available from this API).
-        """
-        # This API doesn't provide player statistics
-        # Return empty stats structure
-        return {"seasons": [], "total": {}}
+    async def get_player_statistics(self, player_id: int, season: int = 2024) -> Dict[str, Any]:
+        """Get player statistics."""
+        data = await self.get_player_detail(player_id, season)
+        return data
 
-    async def get_team_squad(self, team_id: int) -> Dict[str, Any]:
-        """
-        Get team squad with player details including position.
-        GET /football-get-list-player?teamid={id}
-        """
+    async def get_team_squad(self, team_id: int, season: int = 2024) -> Dict[str, Any]:
+        """Get team squad with player details."""
         try:
             data = await self._request(
                 "GET",
-                "/football-get-list-player",
-                params={"teamid": team_id}
+                "/players",
+                params={"team": team_id, "season": season}
             )
             return data
         except Exception as e:
@@ -132,17 +115,15 @@ class RapidAPIClient:
             return {}
 
     async def find_player_in_squad(self, team_id: int, player_id: int) -> Optional[Dict[str, Any]]:
-        """
-        Find a specific player in a team's squad to get position data.
-        """
+        """Find a specific player in a team's squad."""
         try:
             data = await self.get_team_squad(team_id)
-            squad_data = data.get("response", {}).get("list", {}).get("squad", [])
+            squad_data = data.get("response", [])
 
-            for section in squad_data:
-                for member in section.get("members", []):
-                    if str(member.get("id")) == str(player_id):
-                        return member
+            for item in squad_data:
+                player = item.get("player", {})
+                if str(player.get("id")) == str(player_id):
+                    return player
 
             return None
         except Exception as e:
@@ -152,14 +133,11 @@ class RapidAPIClient:
     # ==================== TEAM ENDPOINTS ====================
 
     async def search_teams(self, query: str) -> Dict[str, Any]:
-        """
-        Search for teams by name.
-        GET /football-teams-search?search={query}
-        """
+        """Search for teams by name."""
         try:
             data = await self._request(
                 "GET",
-                "/football-teams-search",
+                "/teams",
                 params={"search": query}
             )
             return data
@@ -168,47 +146,40 @@ class RapidAPIClient:
             return {}
 
     async def get_team_logo(self, team_id: int) -> Optional[str]:
-        """
-        Get team logo URL.
-        GET /football-team-logo?teamid={id}
-        """
+        """Get team logo URL."""
         try:
             data = await self._request(
                 "GET",
-                "/football-team-logo",
-                params={"teamid": team_id}
+                "/teams",
+                params={"id": team_id}
             )
-            return data.get("response", {}).get("url") or data.get("response")
+            response = data.get("response", [])
+            if response and len(response) > 0:
+                return response[0].get("team", {}).get("logo")
         except Exception as e:
             logger.warning(f"Team logo fetch failed: {e}")
-            return None
+        return None
 
     async def get_team_details(self, team_id: int) -> Dict[str, Any]:
-        """
-        Get team details (stadium, capacity, country, etc.)
-        GET /football-league-team?teamid={id}
-        """
+        """Get team details."""
         try:
             data = await self._request(
                 "GET",
-                "/football-league-team",
-                params={"teamid": team_id}
+                "/teams",
+                params={"id": team_id}
             )
             return data
         except Exception as e:
             logger.warning(f"Team details fetch failed: {e}")
             return {}
 
-    async def get_league_teams(self, league_id: int) -> Dict[str, Any]:
-        """
-        Get all teams in a league.
-        GET /football-get-list-all-team?leagueid={id}
-        """
+    async def get_league_teams(self, league_id: int, season: int = 2024) -> Dict[str, Any]:
+        """Get all teams in a league."""
         try:
             data = await self._request(
                 "GET",
-                "/football-get-list-all-team",
-                params={"leagueid": league_id}
+                "/teams",
+                params={"league": league_id, "season": season}
             )
             return data
         except Exception as e:
@@ -217,32 +188,26 @@ class RapidAPIClient:
 
     # ==================== LEAGUE ENDPOINTS ====================
 
-    async def get_popular_leagues(self) -> Dict[str, Any]:
-        """
-        Get popular leagues.
-        GET /football-popular-leagues
-        """
+    async def get_popular_leagues(self, season: int = 2024) -> Dict[str, Any]:
+        """Get available leagues."""
         try:
             data = await self._request(
                 "GET",
-                "/football-popular-leagues",
-                params={}
+                "/leagues",
+                params={"season": season}
             )
             return data
         except Exception as e:
-            logger.warning(f"Popular leagues fetch failed: {e}")
+            logger.warning(f"Leagues fetch failed: {e}")
             return {}
 
     async def get_league_seasons(self, league_id: int) -> Dict[str, Any]:
-        """
-        Get all seasons for a league.
-        GET /football-league-all-seasons?leagueid={id}
-        """
+        """Get league info."""
         try:
             data = await self._request(
                 "GET",
-                "/football-league-all-seasons",
-                params={"leagueid": league_id}
+                "/leagues",
+                params={"id": league_id}
             )
             return data
         except Exception as e:
@@ -250,14 +215,11 @@ class RapidAPIClient:
             return {}
 
     async def get_countries(self) -> Dict[str, Any]:
-        """
-        Get all countries.
-        GET /football-get-all-countries
-        """
+        """Get all countries."""
         try:
             data = await self._request(
                 "GET",
-                "/football-get-all-countries",
+                "/leagues",
                 params={}
             )
             return data

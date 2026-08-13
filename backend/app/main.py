@@ -9,8 +9,9 @@ import logging
 from app.config import CORS_ORIGINS, ENVIRONMENT
 from app.database import init_db
 from app.services.rapidapi import rapidapi_client
+from app.services.api_football import api_client
 from app.services.cache import cache
-from app.routers import players, teams, compare, scout, health, player
+from app.routers import players, teams, leagues, compare, scout, health, player
 
 # Configure logging
 logging.basicConfig(
@@ -38,6 +39,7 @@ async def lifespan(app: FastAPI):
     # Shutdown
     logger.info("Shutting down FutScout API...")
     await rapidapi_client.close()
+    await api_client.close()
 
 
 # Create FastAPI app
@@ -62,6 +64,7 @@ app.include_router(health.router, prefix="/api")
 app.include_router(players.router, prefix="/api")
 app.include_router(player.router, prefix="/api")
 app.include_router(teams.router, prefix="/api")
+app.include_router(leagues.router, prefix="/api")
 app.include_router(compare.router, prefix="/api")
 app.include_router(scout.router, prefix="/api")
 
