@@ -6,12 +6,15 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# API-Football
-API_FOOTBALL_KEY = os.getenv("API_FOOTBALL_KEY", "f2cdf6298afcfa7a9ef93c1faafa741c")
+# API-Football (REQUIRED)
+API_FOOTBALL_KEY = os.getenv("API_FOOTBALL_KEY")
+if not API_FOOTBALL_KEY:
+    raise ValueError("API_FOOTBALL_KEY environment variable is required")
+
 API_FOOTBALL_HOST = os.getenv("API_FOOTBALL_HOST", "v3.football.api-sports.io")
 API_FOOTBALL_BASE_URL = f"https://{API_FOOTBALL_HOST}"
 
-# LLM (Groq)
+# LLM (Groq) - optional
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 
 # CORS

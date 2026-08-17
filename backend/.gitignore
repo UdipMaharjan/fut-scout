@@ -1,0 +1,27 @@
+# Environment variables (contains secrets)
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyc
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+# Database
+*.db
+*.db-journal
+
+# Cache
+.cache/
+*.cache
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
